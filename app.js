@@ -4,9 +4,11 @@ import express from "express";
 import bodyParser from "body-parser";
 import ejs from "ejs";
 import mongoose from "mongoose";
-import encrypt from "mongoose-encryption";
-import md5 from "md5";
+// import encrypt from "mongoose-encryption";
+// import md5 from "md5";
+import bcrypt from "bcrypt";
 
+const saltRounds = 10;
 const app = express();
 const port = 3000;
 
@@ -43,18 +45,25 @@ app.get('/logout',(req,res)=>{
 
 app.post('/register',(req,res)=>{
     console.log(req.body);
-    const newUser = new User({
-        email: req.body.username,
-        password: md5(req.body.password)
+
+    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+
+        const newUser = new User({
+            email: req.body.username,
+            password: hash
+        });
+        newUser.save().then(
+            (result) => {
+                res.render('secrets') 
+            },
+            (error) => {
+                console.log(error); // Log an error
+            }   
+        );
     });
-    newUser.save().then(
-        (result) => {
-            res.render('secrets') 
-        },
-        (error) => {
-            console.log(error); // Log an error
-        }   
-    );
+
+    
+    
     
 });
 
@@ -62,14 +71,25 @@ app.post('/register',(req,res)=>{
 app.post("/login",(req,res)=>{
 
     const username = req.body.username;
-    const password = md5(req.body.password);
+    const password = req.body.password;
+
+    
+
     console.log(username,password);
 
     User.findOne({email: username}).then(
         
         (result) => {
-            if(password === result.password){ res.render('secrets')}
-            else{res.redirect("login")};
+
+            bcrypt.compare(password, result.password).then(function(output) {
+                if (output===true) {
+                    res.render('secrets')
+                }
+                else{
+                    res.redirect("login")
+                }
+            });
+
         },
         (error) => {
             console.log(error); // Log an error
